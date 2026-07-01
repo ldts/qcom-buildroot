@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# S40qrtr - start the Qualcomm IPC Router name service (qrtr-ns).
+#
+# This buildroot image uses busybox init, so the systemd unit shipped by the
+# qrtr package is never executed. qrtr-ns is the QMI service registry; the DSP
+# subsystems register their protection-domain "servreg" service over QMI/QRTR,
+# and without a running name service that never completes -- the DSP rootPD
+# stays half-up and FastRPC stalls with a GLINK intent timeout.
+#
+# NOTE: the SA8775P vendor kernel keeps the *in-kernel* QRTR name service
+# (net/qrtr/ns.c, started from qrtr_ns_init() during qrtr_proto_init() at boot).
+# When that is compiled in it already owns the QRTR control port, so launching
+# the userspace qrtr-ns just makes it print "nameserver already running, going
+# dormant: Address already in use" and back off. In that case we skip it -- the
+# kernel NS provides the registry. We only start userspace qrtr-ns on kernels
+# that lack the in-kernel one.
+#
+# Started before S60fastrpc so the service registry is up before the DSP
+# daemons attach.
+#
+
+QRTR_NS=$(command -v qrtr-ns 2>/dev/null)
+
+# Is a QRTR name service already provided in-kernel? net/qrtr bundles ns.o
+# whenever CONFIG_QRTR is set (y or m), so the kernel runs its own NS. If we
+# cannot tell (no /proc/config.gz), fall back to starting the userspace daemon.
+kernel_has_ns() {
+    [ -r /proc/config.gz ] || return 1
+    zcat /proc/config.gz 2>/dev/null | grep -q '^CONFIG_QRTR=[ym]$'
+}
+
+case "$1" in
+    start)
+        if [ -z "$QRTR_NS" ]; then
+            echo "qrtr-ns not installed, skipping"
+        elif kernel_has_ns; then
+            echo "qrtr-ns: in-kernel name service present, not starting userspace daemon"
+        else
+            echo "Starting qrtr-ns..."
+            "$QRTR_NS" -f &
+        fi
+        ;;
+    stop)
+        kill $(pidof qrtr-ns) 2>/dev/null
+        ;;
+    restart)
+        "$0" stop
+        sleep 1
+        "$0" start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,34 @@
+From 1df539be1be78856f080cdaf6058fead913207bf Mon Sep 17 00:00:00 2001
+From: Jorge Ramirez-Ortiz <jorge.ramirez@oss.qualcomm.com>
+Date: Tue, 9 Jun 2026 09:54:15 +0200
+Subject: [PATCH] iq-9075-evk: add fastrpc-tests to the rootfs
+
+Pull the fastrpc recipe's -tests subpackage (fastrpc_test binary + DSP
+skel libs) into the iq-9075-evk image via MACHINE_EXTRA_RRECOMMENDS, to
+validate the FastRPC/PAS DSP path on this board.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
+---
+ conf/machine/iq-9075-evk.conf | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/conf/machine/iq-9075-evk.conf b/conf/machine/iq-9075-evk.conf
+index 4d717f91..a5208f92 100644
+--- a/conf/machine/iq-9075-evk.conf
++++ b/conf/machine/iq-9075-evk.conf
+@@ -31,6 +31,12 @@ MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += " \
+     qps615-dlkm \
+ "
+ 
++# fastrpc_test binary + DSP skel libs (the fastrpc recipe's -tests
++# subpackage), for validating the FastRPC/PAS DSP path on this board.
++MACHINE_EXTRA_RRECOMMENDS += " \
++    fastrpc-tests \
++"
++
+ QCOM_CDT_FILE = "cdt_rb8_core_kit"
+ QCOM_BOOT_FILES_SUBDIR = "qcs9100"
+ QCOM_PARTITION_FILES_SUBDIR ?= "partitions/iq-9075-evk/ufs"
+-- 
+2.54.0
+

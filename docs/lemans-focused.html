@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lemans — Focused Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #ffffff;
+    --slide-bg: #f6f8fa;
+    --border:   #e1e4e5;
+    --text:     #404040;
+    --muted:    #6a737d;
+    --accent:   #2980b9;
+    --green:    #22863a;
+    --yellow:   #b08800;
+    --red:      #cb2431;
+    --purple:   #6f42c1;
+    --code-bg:  #f6f8fa;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.006em;
+  }
+
+  #deck { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+
+  section {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: opacity .35s ease, transform .35s ease;
+    pointer-events: none;
+  }
+  section.active { opacity: 1; transform: translateX(0); pointer-events: all; }
+  section.prev { opacity: 0; transform: translateX(-60px); }
+
+  #progress { position: fixed; bottom: 0; left: 0; height: 3px; background: var(--accent); transition: width .35s ease; z-index: 99; }
+  #counter { position: fixed; bottom: 16px; right: 24px; font-size: 12px; color: var(--muted); z-index: 99; font-variant-numeric: tabular-nums; }
+  #nav { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 99; }
+  #nav button { background: var(--slide-bg); border: 1px solid var(--border); color: var(--muted); padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; transition: background .2s, color .2s; }
+  #nav button:hover { background: #e1e4e5; color: var(--text); }
+  #nav button:disabled { opacity: .3; cursor: default; }
+
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  h1 { font-size: clamp(28px, 4vw, 52px); font-weight: 700; line-height: 1.15; text-align: center; color: var(--text); }
+  h2 { font-size: clamp(20px, 2.8vw, 36px); font-weight: 700; margin-bottom: 28px; color: var(--text); align-self: flex-start; }
+  h2 .accent { color: var(--accent); }
+  .subtitle { font-size: clamp(14px, 1.8vw, 20px); color: var(--muted); text-align: center; margin-top: 16px; line-height: 1.6; max-width: 680px; }
+
+  .card-grid { display: grid; gap: 16px; width: 100%; max-width: 1000px; }
+  .card-grid.cols2 { grid-template-columns: 1fr 1fr; }
+  .card-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .card { background: var(--slide-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px 22px; }
+  .card h3 { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; }
+  .card p, .card li { font-size: 14px; color: var(--muted); line-height: 1.65; }
+  .card ul { padding-left: 16px; }
+  .card li + li { margin-top: 4px; }
+  .card li span { color: var(--text); }
+
+  .chain { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; padding: 10px 0; }
+  .chain-box { flex-shrink: 0; background: var(--slide-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; text-align: center; min-width: 96px; }
+  .chain-box .cb-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); margin-bottom: 3px; }
+  .chain-box .cb-sub { font-size: 10px; color: var(--muted); line-height: 1.4; }
+  .chain-box.hl { border-color: var(--accent); background: #e7f2fa; }
+  .arrow { flex-shrink: 0; font-size: 18px; color: var(--muted); padding: 0 6px; }
+
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 12.5px; line-height: 1.6; color: var(--text); overflow-x: auto; width: 100%; max-width: 900px; }
+  code { font-family: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-size: 0.92em; }
+  pre .str { color: var(--green); } pre .cmt { color: var(--muted); font-style: italic; } pre .val { color: var(--accent); } pre .fn { color: var(--purple); }
+
+  .badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; margin-right: 4px; }
+  .badge.blue   { background: #e7f2fa; color: var(--accent); }
+  .badge.green  { background: #e6f4ea; color: var(--green); }
+  .badge.yellow { background: #fbf3e0; color: var(--yellow); }
+  .badge.red    { background: #fbecec; color: var(--red); }
+  .badge.purple { background: #f0eafb; color: var(--purple); }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; max-width: 1000px; }
+  .col-head { font-size: 13px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+  .vchain { width: 100%; max-width: 700px; }
+  .vchain-row { display: flex; align-items: stretch; gap: 12px; position: relative; }
+  .vchain-left { display: flex; flex-direction: column; align-items: center; width: 28px; flex-shrink: 0; }
+  .vchain-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); flex-shrink: 0; z-index: 1; margin-top: 4px; }
+  .vchain-dot.grn { background: var(--green); } .vchain-dot.yel { background: var(--yellow); } .vchain-dot.pur { background: var(--purple); }
+  .vchain-line { flex: 1; width: 2px; background: var(--border); margin: 2px auto 0; }
+  .vchain-row:last-child .vchain-line { display: none; }
+  .vchain-content { flex: 1; padding-bottom: 16px; }
+  .vchain-content strong { font-size: 14px; color: var(--text); }
+  .vchain-content small  { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
+
+  #s-title { background: radial-gradient(ellipse at 50% 60%, #e7f2fa 0%, var(--bg) 70%); }
+  #s-title h1 { font-size: clamp(32px, 5vw, 64px); }
+  .tagline { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  table { width: 100%; max-width: 900px; border-collapse: collapse; font-size: 13px; }
+
+  /* Scroll-mode override: the original deck CSS keeps non-active sections at
+     opacity:0/translateX (built for a fullscreen one-slide-at-a-time #deck
+     fixed to 100vw/100vh with overflow hidden). In document flow we need
+     every section visible and #deck to grow with its content. */
+  body.rtd:not(.presenting) #deck { width: auto; height: auto; overflow: visible; }
+  body.rtd:not(.presenting) #deck section { opacity: 1; transform: none; pointer-events: all; }
+  /* Vertical rhythm between the flow blocks inside each section */
+  body.rtd:not(.presenting) #deck section > * + * { margin-top: 1.5rem; }
+</style>
+<link rel="stylesheet" href="_rtd.css">
+</head>
+<body class="rtd" data-page="focused" data-deck>
+<main class="rtd-doc">
+<div id="deck">
+
+<!-- ─── SLIDE 1 — TITLE ─── -->
+<section id="s-title" class="active" data-sec data-sec-title="Overview">
+  <div class="eyebrow">Qualcomm SA8775P · IQ-9075-EVK — Focused Overview</div>
+  <h1>Lemans</h1>
+  <h1 style="color:var(--accent)">Platform · Boot · Projects</h1>
+  <p class="subtitle">
+    The condensed tour: what the platform is, how the bootloaders<br>
+    are laid out in memory, how the boot sequence runs, and the<br>
+    open-source projects that make up the stack.
+  </p>
+  <p class="subtitle" style="font-size:0.8em;margin-top:12px;color:var(--muted)">
+    Need the full build/flash/Yocto detail? See the
+    <a href="lemans.html" style="color:var(--accent)">comprehensive deck</a>.
+  </p>
+  <div class="tagline">
+    <span class="badge blue">U-Boot SPL</span>
+    <span class="badge red">TF-A BL31</span>
+    <span class="badge purple">OP-TEE</span>
+    <span class="badge green">U-Boot</span>
+    <span class="badge yellow">Linux</span>
+  </div>
+</section>
+
+<!-- ─── SLIDE 2 — AGENDA ─── -->
+<section id="s-agenda" data-sec data-sec-title="Agenda">
+  <h2>Agenda</h2>
+  <div class="card-grid cols2" style="max-width:820px">
+    <div class="card" onclick="goTo('s-platform')" style="cursor:pointer">
+      <h3>1 · Platform Overview</h3>
+      <p style="color:var(--muted)">SoC, board, and the software stack</p>
+    </div>
+    <div class="card" onclick="goTo('s-images')" style="cursor:pointer">
+      <h3>2 · Build Outputs</h3>
+      <p style="color:var(--muted)">The three flashable images &amp; their contents</p>
+    </div>
+    <div class="card" onclick="goTo('s-bootmap')" style="cursor:pointer">
+      <h3>3 · Boot Loader Maps</h3>
+      <p style="color:var(--muted)">Per-stage load addresses &amp; device trees</p>
+    </div>
+    <div class="card" onclick="goTo('s-boot')" style="cursor:pointer">
+      <h3>4 · Boot Sequence</h3>
+      <p style="color:var(--muted)">PBL → XBL → SPL → BL31 → OP-TEE → U-Boot → Linux</p>
+    </div>
+    <div class="card" onclick="goTo('s-projects')" style="cursor:pointer">
+      <h3>5 · Projects</h3>
+      <p style="color:var(--muted)">U-Boot · TF-A · TEE · Linux kernel</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 3 — PLATFORM OVERVIEW ─── -->
+<section id="s-platform" data-sec data-sec-title="Platform">
+  <h2>Platform Overview</h2>
+  <div class="card-grid cols3" style="max-width:900px">
+    <div class="card">
+      <h3>SoC</h3>
+      <ul>
+        <li><span>Qualcomm SA8775P (QCS9075)</span></li>
+        <li><span>8 × Kryo CPU cores (AArch64)</span></li>
+        <li><span>Adreno GPU</span></li>
+        <li><span>Hexagon DSP</span></li>
+        <li><span>Automotive-grade security domains</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Board</h3>
+      <ul>
+        <li><span>IQ-9075-EVK (Lemans EVK)</span></li>
+        <li><span>Engineering validation kit</span></li>
+        <li><span>UFS storage</span></li>
+        <li><span>Serial: ttyMSM0</span></li>
+        <li><span>USB EDL / QDL flash</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Software Stack</h3>
+      <ul>
+        <li><span>U-Boot SPL (chosen over TF-A BL2 — both open-source)</span></li>
+        <li><span>TF-A BL31 (EL3 Secure Monitor)</span></li>
+        <li><span>OP-TEE OS (BL32, loaded by SPL)</span></li>
+        <li><span>U-Boot proper (BL33 / UEFI)</span></li>
+        <li><span>Linux + Buildroot initramfs (UKI)</span></li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:24px; font-size:13px; color:var(--muted); max-width:700px; text-align:center">
+    Notable specifics: SPL signed locally via <strong style="color:var(--yellow)">qtestsign</strong>
+    (open-source — no QTI CASS access required);
+    U-Boot proper loaded at <strong style="color:var(--yellow)">0xaf000000</strong>.
+  </p>
+</section>
+
+<!-- ─── SLIDE 3b — BUILD OUTPUTS ─── -->
+<section id="s-images" data-sec data-sec-title="Images">
+  <h2>Build Outputs <span style="color:var(--accent);font-weight:400;font-size:.6em">Three flashable images</span></h2>
+  <div class="card-grid cols3" style="max-width:1000px">
+
+    <div class="card" style="border-color:var(--accent)">
+      <h3 style="color:var(--accent)">1 · tz.mbn</h3>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:8px">tz partition · signed U-Boot SPL</p>
+      <ul style="font-size:12.5px">
+        <li><span>U-Boot SPL (chosen over TF-A BL2), the first open-source stage</span></li>
+        <li><span>SWIV-annotated, then <strong style="color:var(--yellow)">qtestsign</strong>-signed (no CASS)</span></li>
+        <li><span>Built <code>SPL_LOAD_FIT + SPL_ATF</code></span></li>
+        <li><span>Runs at EL3, text base <code style="color:var(--yellow)">0x1c100000</code></span></li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color:var(--red)">
+      <h3 style="color:var(--red)">2 · uefi.elf</h3>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:8px">uefi partition · SPL_ATF boot FIT (a FIT, despite the .elf name)</p>
+      <ul style="font-size:12.5px">
+        <li><span><strong style="color:var(--red)">TF-A BL31</strong> — EL3 Secure Monitor @ <code style="color:var(--yellow)">0x1c200000</code></span></li>
+        <li><span><strong style="color:var(--purple)">OP-TEE OS (BL32)</strong> @ <code style="color:var(--yellow)">0x1c300000</code></span></li>
+        <li><span><strong style="color:var(--green)">U-Boot proper (BL33)</strong> @ <code style="color:var(--yellow)">0xaf000000</code></span></li>
+        <li><span>+ U-Boot control FDT (<code>fdt-1</code>) — lets the SPL record loadables</span></li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color:var(--yellow)">
+      <h3 style="color:var(--yellow)">3 · efi.bin</h3>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:8px">esp partition (LUN 0) · FAT32 EFI system partition</p>
+      <ul style="font-size:12.5px">
+        <li><span><code>EFI/BOOT/bootaa64.efi</code> — UEFI fallback entry</span></li>
+        <li><span><code>EFI/Linux/uki.efi</code> — Unified Kernel Image, bundling:</span></li>
+        <li><span>&nbsp;&nbsp;• kernel <code>Image</code></span></li>
+        <li><span>&nbsp;&nbsp;• <code>lemans-evk-el2.dtb</code> (EL2 device tree)</span></li>
+        <li><span>&nbsp;&nbsp;• Buildroot initramfs + kernel cmdline</span></li>
+      </ul>
+    </div>
+
+  </div>
+  <p style="margin-top:20px; font-size:12.5px; color:var(--muted); max-width:820px; text-align:center; line-height:1.9">
+    <code>make bootimage</code> → <strong style="color:var(--text)">tz.mbn</strong> (signed SPL)<br>
+    <code>make bootimage</code> → <strong style="color:var(--text)">uefi.elf</strong> (BL31 + OP-TEE + U-Boot FIT)<br>
+    <code>make efi</code> → <strong style="color:var(--text)">efi.bin</strong> (ESP: UKI + UEFI fallback)
+  </p>
+</section>
+<section id="s-bootmap" data-sec data-sec-title="Boot Map">
+  <h2>Boot Loader Maps <span style="color:var(--accent);font-weight:400;font-size:.6em">Load Addresses &amp; Device Trees</span></h2>
+
+  <div class="chain" style="justify-content:center; flex-wrap:wrap; gap:6px; margin-bottom:10px">
+    <div class="chain-box hl" style="border-color:var(--accent)"><div class="cb-label">SPL</div><div class="cb-sub">0x1c100000 · EL3</div></div>
+    <div class="arrow">→</div>
+    <div class="chain-box" style="border-color:var(--red)"><div class="cb-label" style="color:var(--red)">BL31</div><div class="cb-sub">0x1c200000 · EL3</div></div>
+    <div class="arrow">→</div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <div class="chain-box" style="border-color:var(--purple)"><div class="cb-label" style="color:var(--purple)">OP-TEE (BL32)</div><div class="cb-sub">0x1c300000 · S-EL1 · resident</div></div>
+      <div style="display:flex; align-items:center; gap:6px">
+        <div class="chain-box" style="border-color:var(--green)"><div class="cb-label" style="color:var(--green)">U-Boot (BL33)</div><div class="cb-sub">0xaf000000 · EL2</div></div>
+        <div class="arrow">→</div>
+        <div class="chain-box" style="border-color:var(--yellow)"><div class="cb-label" style="color:var(--yellow)">Linux</div><div class="cb-sub">UKI · EL2</div></div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size:11.5px; color:var(--muted); text-align:center; margin-bottom:16px">
+    BL31 boots <strong style="color:var(--purple)">OP-TEE (BL32)</strong> and <strong style="color:var(--green)">U-Boot proper (BL33)</strong>;
+    OP-TEE stays resident at S-EL1 while U-Boot loads Linux.
+  </p>
+
+  <div class="card-grid cols2" style="max-width:980px">
+    <div class="card" style="border-color:var(--accent)">
+      <h3 style="color:var(--accent)">Control DTB — U-Boot (<code>fdt-1</code> in the uefi FIT)</h3>
+      <p style="font-size:12.5px; color:var(--muted); line-height:1.6">
+        Read by the SPL so it records the FIT loadables into <code>/fit-images</code>,
+        giving BL31 the OP-TEE and U-Boot entry points. <code>u-boot.bin</code> ships
+        with an appended control DTB because BL31 hands off with <code>x0 = MPIDR</code>,
+        not an fdt pointer.
+      </p>
+    </div>
+    <div class="card" style="border-color:var(--yellow)">
+      <h3 style="color:var(--yellow)">Linux DTB — <code>lemans-evk-el2.dtb</code></h3>
+      <p style="font-size:12.5px; color:var(--muted); line-height:1.6">
+        The EL2 variant needed to run Linux at EL2 without the Gunyah hypervisor —
+        bundled into the UKI, no separate flash step. Enables the EL2 watchdog,
+        disables the GPU Zap shader, and remaps IOMMU streams for the remoteprocs.
+      </p>
+    </div>
+  </div>
+  <p style="font-size:11.5px; color:var(--muted); text-align:center; margin-top:14px">
+    Full per-stage load-address table &amp; DTB details in the
+    <a href="lemans.html" style="color:var(--accent)">comprehensive deck</a>.
+  </p>
+</section>
+
+<!-- ─── SLIDE 5 — BOOT SEQUENCE ─── -->
+<section id="s-boot" data-sec data-sec-title="Boot Chain">
+  <h2>Boot Sequence</h2>
+  <div class="vchain" style="max-width:860px; display:grid; grid-template-columns:1fr 1fr; gap:0 40px">
+
+    <div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot yel"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>PBL — Primary Boot Loader</strong>
+          <small>Hardware ROM in SoC. Authenticates and loads XBL from UFS. Cannot be modified.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot yel"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>XBL — eXtensible Boot Loader</strong>
+          <small>Qualcomm proprietary. Initialises DDR, clocks, power rails. Loads XBL-SEC.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>XBL-SEC — Security Authenticator</strong>
+          <small>Verifies the qtestsign signature on tz.mbn using the hash chain embedded in the MBN header before passing control to U-Boot SPL.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>U-Boot SPL (tz.mbn) @ 0x1c100000</strong>
+          <small>Runs at EL3. Initialises DRAM. Loads TF-A BL31, OP-TEE (BL32), and U-Boot proper (BL33) from the embedded SPL FIT image. Hands off to TF-A BL31.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>TF-A BL31 — Secure Monitor @ 0x1c200000</strong>
+          <small>Runs at EL3. Sets up the Secure Monitor. Loads OP-TEE into Secure EL1 and stages U-Boot proper for Normal World handoff.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot pur"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>SPL FIT → BL31 + BL32 + BL33</strong>
+          <small>SPL unpacks the FIT: BL31 stays at EL3, OP-TEE loads into Secure EL1, U-Boot proper staged for Normal World at 0xaf000000.</small>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot pur"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>BL32 — OP-TEE OS @ 0x1c300000</strong>
+          <small>Initialises in Secure EL1. Sets up Trusted Application infrastructure. Returns control to TF-A BL31 Secure Monitor.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot grn"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>BL33 — U-Boot (UEFI) @ 0xaf000000</strong>
+          <small>Runs at Normal World EL2. Presents UEFI runtime. Reads EFI system partition. Discovers bootaa64.efi fallback, then uki.efi.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot grn"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>UEFI Boot — uki.efi</strong>
+          <small>U-Boot loads and executes the Unified Kernel Image. The UKI PE/COFF stub sets up the execution environment.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot yel"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>Linux Kernel (EL2, lemans-evk-el2.dtb)</strong>
+          <small>Kernel boots with the EL2-specific device tree. Mounts the embedded initramfs. Loads OP-TEE kernel driver.</small>
+        </div>
+      </div>
+      <div class="vchain-row">
+        <div class="vchain-left"><div class="vchain-dot grn"></div><div class="vchain-line"></div></div>
+        <div class="vchain-content">
+          <strong>Buildroot Initramfs</strong>
+          <small>Busybox init, OpenSSH, networking. OP-TEE supplicant bridges TAs between user space and Secure World.</small>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── SLIDE 6 — PROJECTS (divider) ─── -->
+<section id="s-projects" data-sec data-sec-title="Projects">
+  <div class="eyebrow">Section 4</div>
+  <h1 style="margin-bottom:8px">Projects</h1>
+  <p class="subtitle" style="margin-bottom:24px">The open-source components built from source</p>
+  <div class="card-grid cols2" style="max-width:820px">
+    <div class="card" onclick="goTo('s-uboot')" style="cursor:pointer; border-color:var(--green)">
+      <h3 style="color:var(--green)">1 · U-Boot</h3>
+      <p style="color:var(--muted)">SPL (used instead of BL2) + U-Boot proper (BL33)</p>
+    </div>
+    <div class="card" onclick="goTo('s-tfa')" style="cursor:pointer; border-color:var(--red)">
+      <h3 style="color:var(--red)">2 · TF-A</h3>
+      <p style="color:var(--muted)">BL31 — the EL3 Secure Monitor</p>
+    </div>
+    <div class="card" onclick="goTo('s-tee')" style="cursor:pointer; border-color:var(--purple)">
+      <h3 style="color:var(--purple)">3 · TEE</h3>
+      <p style="color:var(--muted)">OP-TEE OS — Secure World kernel (BL32)</p>
+    </div>
+    <div class="card" onclick="goTo('s-linux')" style="cursor:pointer; border-color:var(--yellow)">
+      <h3 style="color:var(--yellow)">4 · Linux Kernel</h3>
+      <p style="color:var(--muted)">EL2 device tree + UKI packaging</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 7 — PROJECTS · U-BOOT ─── -->
+<section id="s-uboot" data-sec data-sec-title="U-Boot">
+  <div class="eyebrow">Projects · 1 of 4</div>
+  <h2>U-Boot <span style="color:var(--green);font-weight:400;font-size:.6em">SPL + proper — first open-source boot stage</span></h2>
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="col-head">SPL — chosen over TF-A BL2</div>
+      <div class="card" style="margin-bottom:14px">
+        <ul style="font-size:13px">
+          <li><span>U-Boot SPL and TF-A BL2 are both open-source first-stage loaders; for this platform we chose to use SPL.</span></li>
+          <li><span>Defconfig <code>qcom_lemans_spl_defconfig</code>, text base <code style="color:var(--yellow)">0x1c100000</code>, runs at EL3.</span></li>
+          <li><span>Built <code>SPL_LOAD_FIT + SPL_ATF</code>: reads the <code>uefi</code> partition FIT and jumps to BL31.</span></li>
+          <li><span><code>BL31=bl31.elf</code> and <code>TEE=tee.elf</code> passed in so the FIT embeds TF-A BL31 + OP-TEE.</span></li>
+          <li><span>SWIV-annotated, then signed locally with <strong style="color:var(--yellow)">qtestsign</strong> → <code>tz.mbn</code> (tz partition). No CASS / remote signing.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>SPL signing (<code>make spl</code>)</h3>
+        <pre style="font-size:11px; padding:10px 14px; max-width:none"><span class="fn">python3</span> lemans/security/swiv_build_utility.py \
+  .output/spl/<span class="val">u-boot-spl-swiv.elf</span> \
+  .output/spl/<span class="val">u-boot-spl.elf</span> lemans
+
+<span class="fn">qtestsign</span> -v6 tz \
+  -o .output/spl/<span class="val">u-boot-spl.mbn</span> \
+  .output/spl/<span class="val">u-boot-spl-swiv.elf</span></pre>
+      </div>
+    </div>
+    <div>
+      <div class="col-head">U-Boot proper — BL33 / UEFI</div>
+      <div class="card" style="margin-bottom:14px">
+        <ul style="font-size:13px">
+          <li><span>Defconfig <code>qcom_lemans_defconfig</code>, text base <code style="color:var(--yellow)">0xaf000000</code>, runs at Normal World EL2.</span></li>
+          <li><span>Shipped in the FIT as <code>u-boot.bin</code> (nodtb + appended control DTB).</span></li>
+          <li><span>Configured in UEFI mode — presents a standard UEFI firmware interface.</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Boot behaviour</h3>
+        <ul style="font-size:13px">
+          <li style="margin-bottom:8px"><span>Reads the EFI system partition (FAT32 <code>efi.bin</code>).</span></li>
+          <li style="margin-bottom:8px"><span>Falls back to <code style="color:var(--accent)">EFI/BOOT/bootaa64.efi</code>.</span></li>
+          <li style="margin-bottom:8px"><span>Launches <code style="color:var(--accent)">EFI/Linux/uki.efi</code> (the Unified Kernel Image).</span></li>
+          <li><span>Hands kernel execution over at EL2 once the UKI is loaded.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 8 — PROJECTS · TF-A ─── -->
+<section id="s-tfa" data-sec data-sec-title="TF-A BL31">
+  <div class="eyebrow">Projects · 2 of 4</div>
+  <h2>TF-A <span style="color:var(--red);font-weight:400;font-size:.6em">BL31 — the EL3 Secure Monitor</span></h2>
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="col-head">What it is</div>
+      <div class="card" style="margin-bottom:14px">
+        <p style="line-height:1.75">
+          ARM Trusted Firmware <strong style="color:var(--red)">BL31</strong> is the runtime
+          Secure Monitor at <strong>EL3</strong> — the highest privilege level. It owns the
+          world switch, dispatching Secure Monitor Calls (SMCs) between the Normal World
+          (Linux) and the Secure World (OP-TEE), and stays resident for the life of the system.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Build — BL31 only</h3>
+        <ul style="font-size:13px">
+          <li><span>Platform target: <code>lemans_evk</code> → <code>build/lemans_evk/release/bl31/bl31.elf</code>.</span></li>
+          <li><span><strong style="color:var(--red)">We use U-Boot SPL in place of TF-A BL2</strong> (both open-source) — only BL31 is built here.</span></li>
+          <li><span>Passed to U-Boot as <code>BL31=</code> so the SPL FIT carries it; flat <code>bl31.bin</code> is the FIT <code>atf</code> firmware.</span></li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="col-head">Role in the boot chain</div>
+      <div class="card">
+        <ul style="font-size:13px">
+          <li style="margin-bottom:10px"><span>Loaded by U-Boot SPL from the FIT to <code style="color:var(--yellow)">0x1c200000</code>; SPL jumps to it.</span></li>
+          <li style="margin-bottom:10px"><span>Initialises the Secure Monitor and EL3 runtime services.</span></li>
+          <li style="margin-bottom:10px"><span>Dispatches <strong style="color:var(--purple)">OP-TEE (BL32)</strong> into Secure EL1.</span></li>
+          <li style="margin-bottom:10px"><span>Hands off to <strong style="color:var(--green)">U-Boot proper (BL33)</strong> in the Normal World with <code>x0 = MPIDR</code> (no fdt pointer).</span></li>
+          <li><span>Remains resident, mediating every Normal ↔ Secure world SMC at runtime.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 9 — PROJECTS · TEE ─── -->
+<section id="s-tee" data-sec data-sec-title="OP-TEE">
+  <div class="eyebrow">Projects · 3 of 4</div>
+  <h2>TEE <span style="color:var(--purple);font-weight:400;font-size:.6em">OP-TEE OS — BL32, Secure World kernel</span></h2>
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="col-head">What it is</div>
+      <div class="card" style="margin-bottom:14px">
+        <p style="line-height:1.75">
+          OP-TEE is an open-source Trusted Execution Environment that runs in the Arm
+          TrustZone Secure World (<strong style="color:var(--purple)">Secure EL1</strong>).
+          It hosts Trusted Applications (TAs) and services Secure Monitor Calls routed
+          through TF-A BL31.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Configuration</h3>
+        <ul style="font-size:13px">
+          <li>Platform: <span>qcom-lemans</span></li>
+          <li>Output: <span>optee_os/out/arm/core/tee.elf</span></li>
+          <li>FIT payload: <span>tee-raw.bin @ <code style="color:var(--yellow)">0x1c300000</code></span></li>
+          <li>Passed to U-Boot as: <span>TEE= (embedded in the SPL FIT)</span></li>
+        </ul>
+      </div>
+    </div>
+    <div>
+      <div class="col-head">Role in the boot chain</div>
+      <div class="card">
+        <p style="margin-bottom:12px; line-height:1.75">
+          U-Boot SPL loads TF-A BL31, OP-TEE (BL32), and U-Boot proper (BL33) from the
+          SPL FIT. BL31 dispatches OP-TEE into Secure EL1, then returns to stage U-Boot.
+        </p>
+        <p style="line-height:1.75">
+          At runtime the Linux kernel talks to OP-TEE via the
+          <code style="color:var(--accent)">tee-supplicant</code> daemon and the
+          <code style="color:var(--accent)">CONFIG_OPTEE</code> driver — SMCs travel
+          EL0 → EL1 → EL3 → Secure EL1.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 10 — PROJECTS · LINUX ─── -->
+<section id="s-linux" data-sec data-sec-title="Linux">
+  <div class="eyebrow">Projects · 4 of 4</div>
+  <h2>Linux Kernel <span style="color:var(--yellow);font-weight:400;font-size:.6em">+ EL2 device tree</span></h2>
+  <div class="two-col" style="align-items:start">
+    <div>
+      <div class="card" style="margin-bottom:14px">
+        <h3>Build Config</h3>
+        <ul style="font-size:13px">
+          <li>Defconfig: <span>defconfig</span> (override via <span>LINUX_DEFCONFIG</span>)</li>
+          <li>Auto-enabled: <span>CONFIG_TEE, CONFIG_OPTEE</span></li>
+          <li>Auto-enabled: <span>CONFIG_EFI_BOOT, CONFIG_EFI_ZBOOT</span></li>
+          <li>Output: <span>arch/arm64/boot/Image</span> → <span>vmlinuz.efi</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Console</h3>
+        <pre style="font-size:11px; padding:8px 12px">console=ttyMSM0,115200
+qcom_scm.download_mode=1
+arm-smmu.disable_bypass=0
+clk_ignore_unused
+pd_ignore_unused</pre>
+      </div>
+    </div>
+    <div>
+      <div class="col-head">EL2 Device Tree</div>
+      <div class="card">
+        <p style="margin-bottom:10px; line-height:1.7; font-size:13px">
+          <code style="color:var(--yellow)">lemans-evk-el2.dtb</code> is the Device Tree
+          variant required when running Linux at EL2 <em>without</em> the Gunyah hypervisor.
+        </p>
+        <ul style="font-size:13px">
+          <li><span>Enables the Qualcomm watchdog at EL2</span></li>
+          <li><span>Disables the GPU Zap shader (not needed at EL2)</span></li>
+          <li><span>Remaps IOMMU streams for ADSP, CDSP, WPSS remoteprocs</span></li>
+          <li><span>Adjusts power domain topology for EL2 operation</span></li>
+        </ul>
+        <p style="margin-top:10px; font-size:12px; color:var(--muted)">
+          Bundled into the UKI alongside the kernel Image and the Buildroot
+          initramfs — no separate flash step required.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── SLIDE 11 — SUMMARY ─── -->
+<section id="s-summary" data-sec data-sec-title="Summary">
+  <h2>Summary</h2>
+  <div class="card-grid cols2" style="max-width:900px">
+    <div class="card">
+      <h3>Platform</h3>
+      <ul>
+        <li><span>Qualcomm SA8775P / QCS9075 on the IQ-9075-EVK (Lemans EVK)</span></li>
+        <li><span>Open firmware: we chose U-Boot SPL over TF-A BL2 (both open-source) as the first open-source stage</span></li>
+        <li><span>SPL signed locally via qtestsign — no QTI CASS access required</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Boot Loader Map</h3>
+      <ul>
+        <li><span>SPL <code>0x1c100000</code> · BL31 <code>0x1c200000</code> · OP-TEE <code>0x1c300000</code></span></li>
+        <li><span>U-Boot proper <code>0xaf000000</code> · Linux via relocatable UKI</span></li>
+        <li><span>uefi FIT carries BL31 + OP-TEE + U-Boot proper on the <code>uefi</code> partition</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Boot Sequence</h3>
+      <ul>
+        <li><span>PBL → XBL → XBL-SEC → SPL (EL3) → BL31 (EL3 monitor)</span></li>
+        <li><span>BL31 boots OP-TEE (S-EL1, resident) + U-Boot (EL2) → UKI → Linux (EL2)</span></li>
+        <li><span>Control DTB → FIT entry points · EL2 DTB for Linux w/o Gunyah</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Projects</h3>
+      <ul>
+        <li><span><strong style="color:var(--green)">U-Boot</strong> — SPL (used instead of BL2) + proper (BL33 / UEFI)</span></li>
+        <li><span><strong style="color:var(--red)">TF-A</strong> — BL31, resident EL3 Secure Monitor</span></li>
+        <li><span><strong style="color:var(--purple)">TEE</strong> — OP-TEE OS at Secure EL1 (BL32)</span></li>
+        <li><span><strong style="color:var(--yellow)">Linux</strong> — EL2 kernel packaged as a UKI</span></li>
+      </ul>
+    </div>
+  </div>
+  <p style="margin-top:20px; font-size:13px; color:var(--muted)">
+    Full build, flash, UKI, and Yocto detail lives in the
+    <a href="lemans.html" style="color:var(--accent)">comprehensive deck</a>.
+  </p>
+</section>
+
+</div><!-- #deck -->
+
+<div id="progress"></div>
+<div id="counter"></div>
+<div id="nav">
+  <button id="btn-prev">← Prev</button>
+  <button id="btn-next">Next →</button>
+</div>
+
+</main>
+<script>
+  const slides = Array.from(document.querySelectorAll('section'));
+  let cur = 0;
+
+  function goTo(id) {
+    const target = document.getElementById(id);
+    if (!target) return;
+    if (!document.body.classList.contains('presenting')) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    const idx = slides.indexOf(target);
+    if (idx >= 0) go(idx);
+  }
+
+  function go(n) {
+    slides[cur].classList.remove('active');
+    slides[cur].classList.add('prev');
+    setTimeout(() => slides[cur < n ? cur : n].classList.remove('prev'), 380);
+    cur = n;
+    window.__deckCur = cur;
+    slides[cur].classList.add('active');
+    document.getElementById('progress').style.width = ((cur / (slides.length - 1)) * 100) + '%';
+    document.getElementById('counter').textContent = (cur + 1) + ' / ' + slides.length;
+    document.getElementById('btn-prev').disabled = cur === 0;
+    document.getElementById('btn-next').disabled = cur === slides.length - 1;
+  }
+
+  window.__deckGo = go; window.__deckCur = 0;
+
+  document.getElementById('btn-next').onclick = () => { if (cur < slides.length - 1) go(cur + 1); };
+  document.getElementById('btn-prev').onclick = () => { if (cur > 0) go(cur - 1); };
+
+  document.addEventListener('keydown', e => {
+    if (!document.body.classList.contains('presenting')) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); if (cur < slides.length - 1) go(cur + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); if (cur > 0) go(cur - 1);
+    }
+  });
+</script>
+<script src="_rtd.js"></script>
+</body>
+</html>

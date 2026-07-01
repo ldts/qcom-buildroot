@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quick Start — OP-TEE on Qualcomm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:       #ffffff;
+    --card-bg:  #f6f8fa;
+    --border:   #e1e4e5;
+    --text:     #404040;
+    --muted:    #6a737d;
+    --accent:   #2980b9;
+    --green:    #22863a;
+    --orange:   #d1741f;
+    --red:      #cb2431;
+  }
+  a.back {
+    align-self: flex-start;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: color .15s;
+  }
+  a.back:hover { color: var(--accent); }
+
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    text-align: center;
+  }
+  h1 {
+    font-size: clamp(24px, 3.5vw, 42px);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .subtitle {
+    font-size: 1rem;
+    color: var(--muted);
+    text-align: center;
+    max-width: 620px;
+    line-height: 1.7;
+  }
+  .subtitle a { color: var(--accent); }
+
+  .tabs {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  .tab-btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.45rem 1.4rem;
+    cursor: pointer;
+    transition: border-color .15s, color .15s, background .15s;
+  }
+  .tab-btn:hover { border-color: var(--accent); }
+  .tab-btn.active { color: var(--accent); border-color: var(--accent); background: #e7f2fa; }
+  .tab-btn .hint { display: block; font-size: 0.7rem; margin-top: 2px; }
+
+  .panel { display: none; width: 100%; max-width: 760px; }
+  .panel.active { display: block; }
+  .setup { width: 100%; max-width: 760px; }
+  /* keep the flashing boxes / sections full-width inside a panel */
+  .panel .highlight, .panel .section-head, .panel .iter { margin-left: auto; margin-right: auto; }
+
+  /* locality badge for a whole bootflow panel */
+  .flow-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    border-radius: 4px;
+    padding: 2px 9px;
+    margin-bottom: 0.75rem;
+  }
+  .flow-badge.both  { color: var(--accent); border: 1px solid var(--accent); }
+  .flow-badge.local { color: var(--orange); border: 1px solid var(--orange); }
+
+  .step {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 1.5rem 0 0.5rem;
+  }
+  .step:first-of-type { margin-top: 0; }
+  .step .num {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    align-self: center;
+  }
+  .step .title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .step .hint, .section-head .hint { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
+  .optional {
+    color: var(--orange);
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    border: 1px solid var(--orange);
+    border-radius: 4px;
+    padding: 1px 7px;
+    margin-left: 6px;
+  }
+
+  pre {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-left: 34px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+    font-variant-ligatures: none;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  pre .cmt    { color: var(--muted); }
+  pre .accent { color: var(--accent); }
+  pre .grn    { color: var(--green); }
+
+  .section-head {
+    width: 100%;
+    max-width: 760px;
+    margin-top: 1rem;
+  }
+  .section-head h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .section-head p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-top: 0.4rem;
+  }
+  .iter {
+    width: 100%;
+    max-width: 760px;
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+  }
+  .iter .label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  .iter pre { margin-left: 0; }
+  .fast {
+    color: var(--green);
+    font-weight: 600;
+  }
+  /* plain section-head immediately followed by a test/iteration grid (not inside a .highlight) */
+  .section-head + .iter { margin-top: 1.25rem; }
+
+  .note {
+    max-width: 760px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 1.25rem;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    border-left: 2px solid var(--border);
+    padding-left: 1rem;
+  }
+  .note code { color: var(--accent); font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+
+  /* highlighted flashing callout — two colour variants */
+  .highlight {
+    width: 100%;
+    max-width: 760px;
+    margin: 1rem auto 0;
+    border-radius: 8px;
+    padding: 1.5rem 1.75rem;
+  }
+  /* primary: flash from the build machine (blue/accent) */
+  .highlight.primary {
+    background: #f0f3f7;
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 0 1px rgba(41,128,185,.15), 0 4px 24px rgba(41,128,185,.08);
+  }
+  .highlight.primary .section-head h2,
+  .highlight.primary .badge { color: var(--accent); }
+  .highlight.primary .badge { border-color: var(--accent); }
+  /* alternative: flash from a separate machine (orange) */
+  .highlight.alt {
+    background: #fbf3e0;
+    border: 1px solid var(--orange);
+    box-shadow: 0 0 0 1px rgba(209,116,31,.15), 0 4px 24px rgba(209,116,31,.08);
+  }
+  .highlight.alt .section-head h2,
+  .highlight.alt .badge { color: var(--orange); }
+  .highlight.alt .badge { border-color: var(--orange); }
+  .highlight.danger {
+    background: #fbecec;
+    border: 1px solid var(--red);
+    box-shadow: 0 0 0 1px rgba(203,36,49,.18), 0 4px 24px rgba(203,36,49,.10);
+  }
+  .highlight.danger .section-head h2,
+  .highlight.danger .badge { color: var(--red); }
+  .highlight.danger .badge { border-color: var(--red); }
+  .danger-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    background: rgba(203,36,49,.08);
+  }
+  .danger-banner .icon { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+  .danger-banner .msg { font-size: 1.05rem; font-weight: 600; color: var(--text); }
+  .danger-banner .msg strong { color: var(--red); }
+  .highlight .section-head,
+  .highlight .iter { max-width: none; }
+  .highlight .section-head { margin-top: 0; }
+  .highlight .iter { margin-top: 1.25rem; }
+  .highlight .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    border: 1px solid;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Vertical rhythm between top-level flow blocks (old body flex-gap is gone) */
+  main.rtd-doc .subtitle { margin: 0.75rem auto 0; }
+  main.rtd-doc .setup { margin: 2rem auto; }
+  main.rtd-doc .tabs { margin: 0 auto 2rem; }
+  main.rtd-doc .panel { margin: 0 auto; }
+  main.rtd-doc > .note { margin-top: 2rem; }
+</style>
+<link rel="stylesheet" href="_rtd.css">
+</head>
+<body class="rtd" data-page="quick">
+<main class="rtd-doc">
+
+  <a class="back" href="index.html">← Back</a>
+
+  <div class="eyebrow">OP-TEE · Qualcomm Platforms</div>
+  <h1 id="quick-start">Quick Start</h1>
+  <p class="subtitle">
+    Initialize the workspace with <a href="https://gerrit.googlesource.com/git-repo">repo</a>,
+    sync all source trees, and build the toolchains and components. Complete the
+    <strong>common setup</strong> below, then pick a <strong>bootflow</strong> to
+    build the images and flash the board.
+  </p>
+
+  <!-- ═══════════════════ COMMON SETUP · every bootflow ═══════════════════ -->
+  <div class="setup">
+    <div class="section-head">
+      <span class="badge">Common setup · every bootflow</span>
+      <h2>Get the sources and build the stack</h2>
+      <p>
+        These three steps are shared by every bootflow. Do them once, then pick a
+        bootflow below for the flow-specific image build and flashing.
+      </p>
+    </div>
+
+    <div class="step"><span class="num">1</span>
+      <span class="title">Initialize the workspace <span class="hint">— Qualcomm SA8775P / QCS9075 EVK</span></span></div>
+<pre><span class="cmt"># create the sandbox and pull the manifest</span>
+mkdir sandbox.lemans &amp;&amp; cd sandbox.lemans
+repo init -u <span class="accent">https://github.com/ldts/qcom-manifest</span> -m lemans.xml</pre>
+
+    <div class="step"><span class="num">2</span>
+      <span class="title">Sync all source trees</span></div>
+<pre>repo sync -j4 --no-clone-bundle</pre>
+
+    <div class="step"><span class="num">3</span>
+      <span class="title">Build toolchains and all components</span></div>
+<pre>cd build
+make -j8 toolchains
+make -j8 all         <span class="cmt"># linux-firmware is fetched automatically by buildroot</span></pre>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-panel="buildroot">Buildroot<span class="hint">manifest · local or remote</span></button>
+    <button class="tab-btn" data-panel="yocto">Yocto<span class="hint">stock BSP · local only</span></button>
+    <button class="tab-btn" data-panel="kernel-on-yocto">Kernel on Yocto<span class="hint">local only</span></button>
+  </div>
+
+  <!-- ═══════════════════ FLOW 1 · BUILDROOT (from manifest) ═══════════════════ -->
+  <div class="panel active" id="buildroot">
+
+    <span class="flow-badge both">Local or remote flash</span>
+
+    <div class="step"><span class="num">4</span>
+      <span class="title">Build the two flashable images <span class="hint">— no Yocto needed</span></span></div>
+<pre>make bootimage       <span class="cmt"># tz.mbn + uefi.elf — the signed boot chain</span>
+make efi             <span class="grn"># efi.bin — kernel UKI + Buildroot rootfs</span></pre>
+
+  <!-- ─────────────────────── FLASHING ─────────────────────── -->
+  <div class="highlight primary">
+  <div class="section-head">
+    <span class="badge">Flashing · on the build machine</span>
+    <h2>Flash over USB <span class="hint">— board plugged into this host, qdl on PATH</span></h2>
+    <p>
+      The board is in EDL (9008) mode on the <em>same</em> Linux host you built on,
+      with <code>qdl</code> on the <code>PATH</code>. These targets are flash-only —
+      the images were already built in step&nbsp;4 — so they just push bits to the
+      device over USB.
+    </p>
+  </div>
+
+  <div class="iter">
+    <div>
+      <div class="label">First flash — full boot chain + kernel</div>
+<pre><span class="cmt"># fetch the Qualcomm boot-chain blobs the flash targets need</span>
+<span class="cmt"># (xbl, aop, cpucp, cdt, GPT + rawprogram XMLs) — no Yocto build needed</span>
+make fetch-blobs
+
+<span class="cmt"># flash the full boot chain (LUNs 1–5) once, then the kernel (LUN 0)</span>
+make flash-loader
+make flash-kernel</pre>
+    </div>
+
+    <div>
+      <div class="label">Kernel-only iteration — afterwards</div>
+<pre><span class="cmt"># reflash just efi.bin — no loader re-flash needed</span>
+make flash-kernel</pre>
+    </div>
+  </div>
+  </div>
+
+  <div class="highlight alt">
+  <div class="section-head">
+    <span class="badge">Flashing · from a separate machine</span>
+    <h2>Package for off-server flashing <span class="hint">— board not on the build server</span></h2>
+    <p>
+      If the EVK lives on a different machine — typically a <strong>Windows</strong>
+      box running Qualcomm's <strong>PCATApp</strong> or <strong>QFIL</strong> — the
+      build server can't reach it over USB. Instead, package the images into a single
+      self-contained directory here, copy it across, and flash from there. The
+      <code>edl-*</code> targets assemble the package but flash nothing, so no
+      device needs to be connected while building. File lookup mirrors the flash
+      targets: <code>input/</code> → Yocto deploy dir → <code>blobs/</code>, so
+      <code>make fetch-blobs</code> is enough to populate a package.
+    </p>
+  </div>
+
+  <div class="iter">
+    <div>
+      <div class="label">edl-package — full-system package (all 6 LUNs)</div>
+<pre><span class="cmt"># build the images (steps 3–4) and fetch the boot-chain blobs first</span>
+make fetch-blobs
+
+<span class="cmt"># assemble everything PCATApp/QFIL needs into one flat directory:</span>
+<span class="cmt">#   prog_firehose_ddr.elf, all rawprogram*/patch* XMLs, GPT bins,</span>
+<span class="cmt">#   firmware MBNs/ELFs, tz.mbn, uefi.elf, efi.bin, qupv3fw.elf</span>
+make edl-package     <span class="grn"># output: lemans/output/edl-package/</span>
+
+<span class="cmt"># the target pre-selects the safe XML variants (originals kept as</span>
+<span class="cmt"># *.xml.backup): rawprogram4 with qupfw_a/b populated (avoids GENI</span>
+<span class="cmt"># SE boot storms) and rawprogram0 with rootfs.img stripped out.</span></pre>
+    </div>
+
+    <div>
+      <div class="label">edl-bootloader — bootloaders only (LUN1–4), fast re-flash</div>
+<pre><span class="cmt"># only XBL, CDT, tz.mbn, uefi.elf + supporting FW — no efi.bin/rootfs.</span>
+<span class="cmt"># the path to take when only OP-TEE / U-Boot changed. OP-TEE is built</span>
+<span class="cmt"># with full debug logging (LOG_LEVEL=4) for this package, then the</span>
+<span class="cmt"># quiet production build is restored so lemans/output/ stays clean.</span>
+make edl-bootloader  <span class="grn"># output: lemans/output/edl-bootloader/</span></pre>
+    </div>
+
+    <div>
+      <div class="label">On the Windows machine — PCATApp / QFIL</div>
+<pre><span class="cmt"># copy the whole directory across (scp, USB stick, share, …)</span>
+scp -r lemans/output/edl-package <span class="accent">user@winbox</span>:C:/edl-package
+
+<span class="cmt"># put the board in EDL (9008) mode, then in the tool:</span>
+<span class="cmt">#   Programmer:  prog_firehose_ddr.elf</span>
+<span class="cmt">#   XMLs:        rawprogram0.xml … rawprogram5.xml + patch0.xml (full)</span>
+<span class="cmt">#                rawprogram1–4.xml + patch1–4.xml   (bootloader-only)</span></pre>
+    </div>
+  </div>
+  </div>
+
+  <!-- ─────────────────── UFS RECOVERY ─────────────────── -->
+  <div class="highlight danger">
+  <div class="section-head">
+    <span class="badge">Recovery · partitions broken by a bad flash</span>
+    <h2>Re-provision the UFS <span class="hint">— last resort after a firmware upgrade gone wrong</span></h2>
+  </div>
+
+  <div class="danger-banner">
+    <span class="icon">⚠️</span>
+    <span class="msg">
+      This <strong>reconfigures the UFS LUN layout and destroys every byte on the
+      device</strong> — rootfs, firmware, GPT, all of it. It is not part of a
+      routine flash. Run it <strong>only</strong> when a firmware upgrade or flash
+      gone wrong has broken the on-device partition (LUN) layout, so that a normal
+      <code>make flash-loader</code> / <code>make flash-kernel</code> no longer
+      succeeds. After it completes, re-flash from scratch with
+      <code>make flash-loader &amp;&amp; make flash-kernel</code>.
+    </span>
+  </div>
+
+  <div class="section-head">
+    <p>
+      The board must be in <strong>EDL (9008) mode</strong> with <code>qdl</code>
+      on the <code>PATH</code>. The target downloads the CodeLinaro
+      <code>provision.zip</code>, loads the DDR firehose programmer (resolved just
+      like the flash targets: <code>input/</code> → Yocto deploy dir →
+      <code>blobs/</code>), and applies a provision layout over
+      <code>qdl --storage ufs</code>.
+    </p>
+  </div>
+
+  <div class="iter">
+    <div>
+      <div class="label">flash-ufs-provision — rewrite the LUN layout</div>
+<pre><span class="cmt"># default layout grows HLOS LUN 0 (provision_1_2.xml) — LUN 0 is</span>
+<span class="cmt"># where this build writes efi.bin + rootfs.img</span>
+make flash-ufs-provision
+
+<span class="cmt"># then rebuild the device from a clean slate</span>
+make flash-loader
+make flash-kernel</pre>
+    </div>
+
+    <div>
+      <div class="label">Pick a different layout</div>
+<pre><span class="cmt"># provision_1_1.xml grows User LUN 7 instead; larger NHLOS LUNs</span>
+make flash-ufs-provision <span class="accent">UFS_PROVISION_XML=provision_1_1.xml</span></pre>
+    </div>
+  </div>
+  </div>
+
+  <div class="section-head">
+    <h2>Iterate on a single component</h2>
+    <p>
+      After the first full build, you rarely rebuild everything. Edit one tree
+      (<strong>OP-TEE OS</strong>, <strong>TF-A</strong>, <strong>U-Boot</strong> or
+      <strong>Linux</strong>), rebuild just that component, repackage, and reflash.
+      Builds are <span class="fast">incremental</span> — only the changed source is
+      recompiled — so the edit → flash loop is <span class="fast">seconds to a couple of
+      minutes</span>, not the hour a full build takes.
+    </p>
+  </div>
+
+  <div class="iter">
+    <div>
+      <div class="label">Boot-chain change — OP-TEE OS, TF-A or U-Boot</div>
+<pre><span class="cmt"># rebuild just the component you touched (incremental — seconds–minutes)</span>
+make optee-os        <span class="cmt"># or:  make u-boot  /  make spl</span>
+make bootimage       <span class="cmt"># repackage the signed boot image (tz.mbn + uefi.elf)</span>
+make flash-loader    <span class="grn"># reflash the boot chain</span></pre>
+    </div>
+
+    <div>
+      <div class="label">Kernel change — Linux</div>
+<pre><span class="cmt"># rebuild the kernel (incremental — typically ~1–2 min)</span>
+make linux
+make efi             <span class="cmt"># repackage the EFI image / UKI (efi.bin)</span>
+make flash-kernel    <span class="grn"># reflash the kernel partition only — firmware untouched</span></pre>
+    </div>
+  </div>
+
+  <p class="note" id="lemans-sign">
+    <strong style="color:var(--text)">Lemans:</strong> SPL is signed locally via
+    <code>qtestsign</code> (open-source, no CASS required) — signing runs automatically
+    as part of <code>make bootimage</code> / <code>make spl</code>.
+  </p>
+
+  <p class="note">
+    <code>make fetch-blobs</code> pulls the Qualcomm boot binaries and CDT directly from the
+    public Qualcomm / CodeLinaro URLs, so a full Yocto BSP build is not required.
+    The flash targets look for inputs in <code>input/</code> → Yocto deploy dir →
+    <code>blobs/</code>, so the blobs fetched in step&nbsp;3 are used automatically.
+  </p>
+
+  </div><!-- /panel #buildroot -->
+
+  <!-- ═══════════════════ FLOW 2 · YOCTO (stock BSP) ═══════════════════ -->
+  <div class="panel" id="yocto">
+
+    <span class="flow-badge local">Local flash only</span>
+
+    <div class="section-head">
+      <h2>Build &amp; flash the stock Yocto release</h2>
+      <p>
+        Build and flash the released, <strong>unmodified</strong> Qualcomm
+        BSP as a known-good reference — nothing from the manifest is
+        substituted. This flow flashes over USB from the build host only;
+        there is no off-server package for it. Not required for a normal
+        build — the Buildroot flow already gives you a bootable image.
+      </p>
+    </div>
+
+    <div class="iter">
+      <div>
+        <div class="label">Build the Yocto stack</div>
+<pre><span class="cmt"># clones meta-qcom and builds via kas — several hours.</span>
+<span class="cmt"># flash-yocto reads the release straight from the Yocto deploy</span>
+<span class="cmt"># dir, so no manual copy into lemans/output/ is needed.</span>
+make yocto</pre>
+      </div>
+
+      <div>
+        <div class="label">Flash the full release (all 6 LUNs)</div>
+<pre><span class="cmt"># flashes the pristine BSP: bootloader, firmware, efi.bin + rootfs.img.</span>
+make flash-yocto
+
+<span class="cmt"># NOTE: this overwrites whatever flash-loader / flash-kernel installed.</span>
+<span class="cmt"># Re-run those afterward to restore your custom build.</span></pre>
+      </div>
+    </div>
+
+  </div><!-- /panel #yocto -->
+
+  <!-- ═══════════════ FLOW 3 · MANIFEST KERNEL ON YOCTO ROOTFS ═══════════════ -->
+  <div class="panel" id="kernel-on-yocto">
+
+    <span class="flow-badge local">Local flash only</span>
+
+    <div class="section-head">
+      <h2>Run your kernel on the on-disk Yocto rootfs</h2>
+      <p>
+        Wrap the locally-built kernel in a UKI that boots
+        <code>root=PARTLABEL=rootfs</code> against the <strong>already-flashed
+        Yocto rootfs</strong>, instead of the Buildroot initramfs. Only the
+        <code>efi.bin</code> is reflashed — the rootfs is untouched.
+      </p>
+      <p>
+        <strong style="color:var(--orange)">Prerequisite:</strong> run the
+        <strong>Yocto</strong> flow first — <code>make efi-kernel-only</code>
+        errors out unless the Yocto <code>efi.bin</code> exists and the Yocto
+        rootfs is flashed on the board.
+      </p>
+    </div>
+
+    <div class="iter">
+      <div>
+        <div class="label">Build the kernel-only UKI and reflash it</div>
+<pre><span class="cmt"># wraps the freshly-built kernel in an efi.bin that boots the</span>
+<span class="cmt"># on-disk Yocto rootfs (root=PARTLABEL=rootfs).</span>
+make efi-kernel-only
+make flash-kernel    <span class="grn"># reflash efi.bin only — Yocto rootfs untouched</span></pre>
+      </div>
+    </div>
+
+    <p class="note">
+      <code>make efi-kernel-only</code> builds the kernel for you — it depends on
+      <code>make linux</code>, which generates <code>.config</code> from
+      <code>make linux-defconfig</code> automatically on the first build and rebuilds
+      incrementally afterwards. Run <code>make linux-defconfig</code> yourself only to
+      clean and refresh the kernel config (it runs <code>mrproper</code>, forcing a
+      full rebuild) — e.g. after bumping the kernel or changing enabled options.
+    </p>
+
+  </div><!-- /panel #kernel-on-yocto -->
+
+  <p class="note">
+    Run <code>make help</code> in <code>build/</code> for the full target list.
+  </p>
+
+</main>
+<script>
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = btn.dataset.panel;
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      document.querySelectorAll('.panel').forEach(function (p) {
+        p.classList.toggle('active', p.id === target);
+      });
+    });
+  });
+</script>
+<script src="_rtd.js"></script>
+
+</body>
+</html>

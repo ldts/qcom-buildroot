@@ -1,0 +1,33 @@
+diff --git a/arch/arm/dts/lemans-evk-u-boot.dtsi b/arch/arm/dts/lemans-evk-u-boot.dtsi
+index ea4b787102c..a2103a767c0 100644
+--- a/arch/arm/dts/lemans-evk-u-boot.dtsi
++++ b/arch/arm/dts/lemans-evk-u-boot.dtsi
+@@ -46,3 +46,15 @@
+ &tlmm {
+ 	bootph-all;   /* Make TLMM GPIO controller available in SPL */
+ };
++
++/*
++ * Enable the OP-TEE node in the U-Boot control DTB.  OP-TEE runs in the
++ * secure world (handed off by the SPL_ATF FIT via BL31); this node lets
++ * U-Boot's OP-TEE driver (CONFIG_OPTEE) talk to it over SMC.
++ */
++&{/firmware} {
++	optee {
++		compatible = "linaro,optee-tz";
++		method = "smc";
++	};
++};
+diff --git a/configs/qcom_lemans_defconfig b/configs/qcom_lemans_defconfig
+index 388b2ca2e78..26555c0d2d5 100644
+--- a/configs/qcom_lemans_defconfig
++++ b/configs/qcom_lemans_defconfig
+@@ -18,3 +18,8 @@ CONFIG_ENV_SCSI_PART_TYPE_GUID="bc0330eb-3410-4951-a617-03898dbe3372"
+ # CONFIG_ENV_IS_NOWHERE is not set
+ 
+ CONFIG_WATCHDOG_AUTOSTART=y
++
++# OP-TEE support so U-Boot can open sessions to OP-TEE TAs (needs the
++# /firmware/optee node, added via lemans-evk-u-boot.dtsi).
++CONFIG_TEE=y
++CONFIG_OPTEE=y

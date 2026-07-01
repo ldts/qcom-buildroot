@@ -6,3 +6,10 @@
 gdb
 pi3.cfg
 .hafnium_checkout
+# Fetched artifacts (populated by 'make fetch-blobs')
+/lemans/blobs/
+/lemans/overlay/lib/
+/lemans/overlay/usr/
+/oe-core/
+/yocto/
+/bitbake/
