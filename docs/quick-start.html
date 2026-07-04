@@ -182,6 +182,9 @@
     margin-bottom: 0.4rem;
   }
   .iter pre { margin-left: 0; }
+  /* Grid items default to min-width:auto, which lets a long <pre> line push
+     past the container instead of scrolling. min-width:0 lets overflow-x work. */
+  .iter > div { min-width: 0; }
   .fast {
     color: var(--green);
     font-weight: 600;
