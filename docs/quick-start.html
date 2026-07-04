@@ -344,6 +344,11 @@ make efi             <span class="grn"># efi.bin — kernel UKI + Buildroot root
       the images were already built in step&nbsp;4 — so they just push bits to the
       device over USB.
     </p>
+    <p>
+      For the full Linux procedure — installing <code>qdl</code>, putting the board
+      into EDL mode, and provisioning the UFS — follow Qualcomm's official
+      <a href="https://dragonwingdocs.qualcomm.com/Linux/devices/iq9075-evk/update-software/flash-over-qli">Flash over QLI guide</a>.
+    </p>
   </div>
 
   <div class="iter">
@@ -447,7 +452,9 @@ scp -r lemans/output/edl-package <span class="accent">user@winbox</span>:C:/edl-
       <code>provision.zip</code>, loads the DDR firehose programmer (resolved just
       like the flash targets: <code>input/</code> → Yocto deploy dir →
       <code>blobs/</code>), and applies a provision layout over
-      <code>qdl --storage ufs</code>.
+      <code>qdl --storage ufs</code>. See Qualcomm's
+      <a href="https://dragonwingdocs.qualcomm.com/Linux/devices/iq9075-evk/update-software/flash-over-qli">Flash over QLI guide</a>
+      for the full UFS provisioning procedure.
     </p>
   </div>
 
