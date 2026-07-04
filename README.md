@@ -56,4 +56,4 @@ landing page (overview, quick start, and the Lemans build/flash/boot deep dive).
 ## Further reading
 
 - [OP-TEE documentation](https://optee.readthedocs.io)
-- [Qualcomm Platform Docs](https://ldts.github.io/qcom-build/)
+- [Qualcomm Platform Docs](https://ldts.github.io/qcom-buildroot/)
