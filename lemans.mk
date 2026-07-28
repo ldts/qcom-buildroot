@@ -35,6 +35,8 @@
 #   buildroot      Build the root filesystem (via common.mk)
 #
 #   qtestsign-fetch  Clone qtestsign (auto-invoked by spl)
+#   spl-oem-sign   OEM-sign the SPL via sectools -> lemans/output/tz-secure.mbn
+#                  (secure-boot testing only; see edl-secure-package)
 #   fetch-blobs    Download QCS9100 firmware blobs directly (no Yocto build)
 #   yocto          Clone meta-qcom and build the OE no-distro BSP image via kas
 #   flash-yocto    Flash the complete unmodified Yocto release image (all 6 LUNs)
@@ -42,6 +44,7 @@
 #   flash-kernel   Flash the updated efi.bin via QDL  (efi.bin from build; LUN0 tables from blobs)
 #   flash-ufs-provision  Re-provision the UFS LUN layout (recover partitions broken by a bad flash)
 #   edl-package    Assemble flat image dir for Windows EDL flashing (PCATApp/QFIL)
+#   edl-secure-package  edl-package + OEM-signed XBL/XBL-CONFIG/SPL (secure-boot testing)
 #   edl-bootloader Assemble bootloader-only EDL package (LUN1–4, fast re-flash)
 #   *-clean        Per-component clean targets
 #
@@ -174,6 +177,11 @@ U-BOOT_PATH    ?= $(ROOT)/u-boot
 
 SWIV_SCRIPT ?= $(CURDIR)/lemans/security/swiv_build_utility.py
 
+# sectools OEM signing (secure-boot testing only — see spl-oem-sign / edl-secure-package).
+# Not used by the default qtestsign-based 'spl' target.
+SECTOOLS_PATH    ?= /pkg/sectools/v2/1.44/Linux
+SECURITY_PROFILE  = $(CURDIR)/lemans/security/lemans_tz_security_profile.xml
+
 ################################################################################
 # Source overlays
 #
@@ -287,6 +295,8 @@ help:
 	@echo "  u-boot         Build U-Boot SPL (qcom_lemans_spl_defconfig → tz.mbn)"
 	@echo "  u-boot-proper  Build U-Boot proper (qcom_lemans_defconfig, BL33 @ 0xaf000000)"
 	@echo "  spl            SWIV-annotate + qtestsign the SPL → tz.mbn"
+	@echo "  spl-oem-sign   OEM-sign the SWIV-annotated SPL via sectools →"
+	@echo "                 tz-secure.mbn (secure-boot testing; see edl-secure-package)"
 	@echo "  uefi           Assemble the SPL_ATF boot FIT → uefi.elf"
 	@echo "  linux          Build kernel Image + DTBs"
 	@echo "  buildroot      Build the root filesystem"
@@ -315,6 +325,12 @@ help:
 	@echo "                 Output: lemans/output/edl-package/"
 	@echo "                 Contains prog_firehose_ddr.elf, all rawprogram/patch XMLs,"
 	@echo "                 GPT bins, all firmware MBNs/ELFs, efi.bin, and qupv3fw.elf"
+	@echo "  edl-secure-package  Same as edl-package, then OEM-signs xbl.elf,"
+	@echo "                 xbl_config.elf, and the SPL tz.mbn via sectools"
+	@echo "                 (--image-id XBL / XBL-CONFIG / TZ, --signing-mode TEST)."
+	@echo "                 Output: lemans/output/edl-secure-package/"
+	@echo "                 For OEM secure-boot testing on a fused EVK; the default"
+	@echo "                 edl-package's tz.mbn is qtestsign-signed (no real signature)."
 	@echo "  edl-bootloader Bootloader-only EDL package (LUN1–4: XBL, CDT, SPL, U-Boot)"
 	@echo "                 Output: lemans/output/edl-bootloader/"
 	@echo "                 Fast re-flash path when only OP-TEE/U-Boot changed"
@@ -515,6 +531,37 @@ spl-clean:
 	rm -f $(CURDIR)/lemans/output/tz.mbn \
 	      $(U_BOOT_OUTPUT)/spl/u-boot-spl-swiv.elf \
 	      $(U_BOOT_OUTPUT)/spl/u-boot-spl.mbn
+
+################################################################################
+# spl-oem-sign — OEM-sign the SWIV-annotated SPL via sectools (secure-boot
+# testing only; NOT part of the default 'spl'/'bootimage' flow, which stays on
+# qtestsign per the platform's own bootflow — see qtestsign.py's own docstring:
+# it never signs anything for real, no fields).
+#
+# Reuses the same SWIV-annotated ELF 'spl' produces
+# ($(U_BOOT_OUTPUT)/spl/u-boot-spl-swiv.elf); run 'make spl' (or 'make
+# u-boot') first so that file exists. Same sectools command shape as
+# sandbox.lemans's edl-secure-package: --image-id TZ, TEST-mode, no CASS.
+# Output is lemans/output/tz-secure.mbn — kept separate from lemans/output/tz.mbn
+# (the qtestsign output) so 'make spl' can never silently clobber this or
+# vice versa.
+################################################################################
+.PHONY: spl-oem-sign
+
+spl-oem-sign:
+	@if [ ! -f "$(U_BOOT_OUTPUT)/spl/u-boot-spl-swiv.elf" ]; then \
+		echo "ERROR: $(U_BOOT_OUTPUT)/spl/u-boot-spl-swiv.elf not found"; \
+		echo "       run 'make spl' (or 'make u-boot') first"; \
+		exit 1; \
+	fi
+	mkdir -p $(CURDIR)/lemans/output
+	$(SECTOOLS_PATH)/sectools secure-image \
+		$(U_BOOT_OUTPUT)/spl/u-boot-spl-swiv.elf \
+		--outfile $(CURDIR)/lemans/output/tz-secure.mbn \
+		--image-id TZ \
+		--security-profile $(SECURITY_PROFILE) \
+		--sign --signing-mode TEST
+	@echo "OEM-signed SPL written to lemans/output/tz-secure.mbn (tz partition image)"
 
 ################################################################################
 # uefi partition image — SPL_ATF boot FIT
@@ -1473,6 +1520,92 @@ edl-package-debug:
 	@echo ""
 	@echo "DEBUG EDL package assembled at: $(EDL_PKG_DIR)/"
 	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE)"
+
+################################################################################
+# edl-secure-package — edl-package, plus OEM-signed XBL, XBL-CONFIG, and the
+# U-Boot SPL (tz partition), for OEM secure-boot testing on a fused EVK.
+#
+# Unlike edl-package's SPL (qtestsign — no real signature, see qtestsign.py's
+# own docstring: it explicitly does not support secure-boot-enabled devices),
+# this signs via sectools --image-id TZ, same tool/profile/TEST-mode as
+# sandbox.lemans's edl-secure-package. Requires 'make spl-oem-sign' to have
+# been run first (or run it here) so lemans/output/tz-secure.mbn exists.
+#
+# XBL / XBL-CONFIG / TZ-here are OEM-signed only, per the actual scope asked
+# for -- FIP/FIT contents (TF-A BL31, U-Boot proper, OP-TEE, all bundled in
+# uefi.elf) are NOT OEM-signed; that FIT only carries per-image SHA-256
+# integrity hashes (see the 'uefi' target), never routed through sectools.
+#
+# OPEN QUESTION, not yet verified on hardware: sandbox.lemans's TZ (TF-A BL2)
+# needed BOTH an OEM and a QTI signature -- XBL-SEC rejected an OEM-only BL2
+# there (see that repo's edl-secure-package comment block). It is not yet
+# known whether XBL-SEC's per-image authenticator policy for THIS platform's
+# tz-partition payload (U-Boot SPL, not BL2) also requires QTI, or whether
+# OEM-only is sufficient here. This target is OEM-only per the current ask;
+# if XBL-SEC rejects it the same way, the fix is the same double-sign pattern
+# sandbox.lemans uses (sign from a QTI-signed tz.mbn instead of the bare SWIV
+# ELF) -- but that would first need a QTI/CASS signing step added here, which
+# does not currently exist in this build root at all.
+################################################################################
+EDL_SEC_PKG_DIR = $(CURDIR)/lemans/output/edl-secure-package
+
+.PHONY: edl-secure-package edl-secure-package-clean
+
+edl-secure-package: edl-package spl-oem-sign
+	@echo ""
+	@echo "── edl-secure-package: OEM-signing XBL, XBL-CONFIG, SPL (tz) ──"
+	rm -rf $(EDL_SEC_PKG_DIR)
+	mkdir -p $(EDL_SEC_PKG_DIR)
+	@# Start from the assembled (unsigned/qtestsign) package, then replace the
+	@# three PBL/XBL-SEC-authenticated payloads with OEM-signed versions below.
+	cp -a $(EDL_PKG_DIR)/. $(EDL_SEC_PKG_DIR)/
+	$(SECTOOLS_PATH)/sectools secure-image $(EDL_PKG_DIR)/xbl.elf \
+		--outfile $(EDL_SEC_PKG_DIR)/xbl.elf \
+		--image-id XBL \
+		--security-profile $(SECURITY_PROFILE) \
+		--sign --signing-mode TEST
+	$(SECTOOLS_PATH)/sectools secure-image $(EDL_PKG_DIR)/xbl_config.elf \
+		--outfile $(EDL_SEC_PKG_DIR)/xbl_config.elf \
+		--image-id XBL-CONFIG \
+		--security-profile $(SECURITY_PROFILE) \
+		--sign --signing-mode TEST
+	@# tz-secure.mbn (OEM-signed SPL) replaces edl-package's qtestsign tz.mbn.
+	cp $(CURDIR)/lemans/output/tz-secure.mbn $(EDL_SEC_PKG_DIR)/tz.mbn
+	@echo ""
+	@echo "OEM-signed EDL package assembled at: $(EDL_SEC_PKG_DIR)/"
+	@echo "  OEM-signed:  xbl.elf  xbl_config.elf  tz.mbn (U-Boot SPL)"
+	@echo "  Unsigned:    uefi.elf (FIT: TF-A BL31 + OP-TEE + U-Boot proper), efi.bin, ..."
+	@echo "  Flash THIS directory, not edl-package/ (which holds the qtestsign copy)."
+	@echo "  Verify before flashing:"
+	@echo "    $(SECTOOLS_PATH)/sectools secure-image --inspect $(EDL_SEC_PKG_DIR)/tz.mbn"
+	@echo "  Flashing needs the VIP signed-digest flow if the board is fused --"
+	@echo "  see sandbox.lemans's lemans-vip-flashing-procedure notes."
+
+edl-secure-package-clean:
+	rm -rf $(EDL_SEC_PKG_DIR)
+
+################################################################################
+# edl-secure-package-debug — OEM-signed EDL package with DEBUG OP-TEE
+#
+# Same as 'edl-secure-package' but with verbose OP-TEE logging (LOG_LEVEL=4).
+# Useful for debugging PAS/remoteproc issues on fused boards.
+#
+# edl-secure-package depends (via edl-package) on 'bootimage', so passing
+# the flags straight to 'edl-secure-package' builds the whole chain debug
+# in one pass -- see edl-package-debug's comment block. A final quiet
+# 'bootimage' restores lemans/output/ without touching the already-signed
+# debug package.
+################################################################################
+.PHONY: edl-secure-package-debug
+
+edl-secure-package-debug:
+	@echo "Building OP-TEE with debug flags for edl-secure-package..."
+	$(MAKE) edl-secure-package CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 DEBUG=1 CFG_DEBUG_INFO=y
+	@echo "Restoring production OP-TEE build (LOG_LEVEL=1)..."
+	$(MAKE) bootimage
+	@echo ""
+	@echo "DEBUG OEM-signed EDL package assembled at: $(EDL_SEC_PKG_DIR)/"
+	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE with OEM signatures)"
 
 ################################################################################
 # edl-bootloader — Minimal EDL package: bootloaders only (no efi.bin/rootfs)
