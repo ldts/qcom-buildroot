@@ -420,6 +420,10 @@
       <h3 style="font-size:13px;margin-bottom:3px">U-Boot SPL</h3>
       <p style="font-size:11px;color:var(--muted)">SWIV · qtestsign (local, no CASS)</p>
     </div>
+    <div class="card" onclick="goTo('s-oem-secboot')" style="cursor:pointer;padding:12px 14px">
+      <h3 style="font-size:13px;margin-bottom:3px">OEM Secure-Boot Signing</h3>
+      <p style="font-size:11px;color:var(--muted)">edl-secure-bootloader · fused-EVK testing</p>
+    </div>
     <div class="card" onclick="goTo('s-optee')" style="cursor:pointer;padding:12px 14px">
       <h3 style="font-size:13px;margin-bottom:3px">OP-TEE TEE</h3>
       <p style="font-size:11px;color:var(--muted)">BL32 — Secure World Kernel</p>
@@ -759,6 +763,32 @@
       <tr>
         <td colspan="3" style="background:var(--bg);color:var(--muted);font-size:11px;font-weight:700;
             text-transform:uppercase;letter-spacing:.09em;padding:10px 16px 4px;border-bottom:none">
+          OEM Secure-Boot Signing  (fused-EVK testing — see the dedicated section above)
+        </td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--yellow)">spl-oem-sign</code></td>
+        <td class="muted">tz-secure.mbn — SWIV-annotated SPL, OEM-signed via <code>sectools --image-id TZ</code></td>
+        <td class="muted">Local sectools TEST key, no CASS. Kept separate from <code>tz.mbn</code> (qtestsign's output) — running <code>make spl</code> can't clobber it and vice versa.</td>
+      </tr>
+      <tr style="background:#e7f2fa;outline:1px solid var(--accent)">
+        <td>
+          <code style="color:var(--accent);font-size:13px">edl-secure-bootloader</code>
+        </td>
+        <td class="muted">Same as <code>edl-bootloader</code> (LUN1-4), with XBL/XBL-CONFIG/TZ all OEM-signed</td>
+        <td class="muted">Fast re-flash for OEM secure-boot testing — e.g. after cherry-picking new PAS auth commits into optee_os</td>
+      </tr>
+      <tr style="background:#e7f2fa;outline:1px solid var(--accent)">
+        <td>
+          <code style="color:var(--accent);font-size:13px">edl-secure-package</code>
+        </td>
+        <td class="muted">Same as <code>edl-package</code> (LUN0-5, full image), with XBL/XBL-CONFIG/TZ all OEM-signed</td>
+        <td class="muted">Full-image OEM secure-boot package. Both edl-secure-* targets leave <code>uefi.elf</code> unsigned — not required for this bootflow.</td>
+      </tr>
+
+      <tr>
+        <td colspan="3" style="background:var(--bg);color:var(--muted);font-size:11px;font-weight:700;
+            text-transform:uppercase;letter-spacing:.09em;padding:10px 16px 4px;border-bottom:none">
           Source Overlays  (local u-boot / linux patches, not committed upstream)
         </td>
       </tr>
@@ -847,6 +877,112 @@
   </div>
   <p style="max-width:960px; width:100%; font-size:12px; color:var(--muted); margin-top:12px">
     qtestsign is auto-fetched by <code>make spl</code> if not already present at <code>$(ROOT)/qtestsign</code>.
+  </p>
+</section>
+
+<!-- ─────────────────────────────────────────────────
+     SLIDE 6b — OEM SECURE-BOOT SIGNING
+───────────────────────────────────────────────── -->
+<section id="s-oem-secboot" data-sec data-sec-title="OEM Secure-Boot Signing">
+  <h2>OEM Secure-Boot Signing <span style="color:var(--red);font-weight:400;font-size:.6em">edl-secure-bootloader / edl-secure-package</span></h2>
+  <div class="rtd-note" style="max-width:960px; width:100%; margin-bottom:18px">
+    <strong>qtestsign does not produce a real signature.</strong> Its own docstring
+    says so directly: no signature is generated, and it only works on devices
+    with firmware secure boot <em>disabled</em>. On a Lemans EVK with
+    <code>OEM_SECURE_BOOT</code> + <code>PK_HASH_0</code> fused, PBL/XBL-SEC
+    authenticates every SBL1-loaded boot-chain image against the OEM root of
+    trust — an image signed by qtestsign (or unsigned) is silently truncated
+    to a bogus 148-byte stub instead of loaded. <code>edl-secure-bootloader</code>
+    / <code>edl-secure-package</code> exist to produce a package that actually
+    boots on a fused board.
+  </div>
+  <div class="card-grid cols2" style="max-width:960px; margin-bottom:18px">
+    <div class="card">
+      <h3>What gets OEM-signed</h3>
+      <ul>
+        <li><span>XBL — <code>lemans/blobs/xbl.elf</code> (stock Qualcomm blob, already OEM-signed as shipped)</span></li>
+        <li><span>XBL-CONFIG — <code>lemans/blobs/xbl_config.elf</code> (same, already OEM-signed as shipped)</span></li>
+        <li><span>TZ — the SPL, via <code>spl-oem-sign</code> → <code>tz-secure.mbn</code></span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What does NOT need OEM-signing here</h3>
+      <ul>
+        <li><span>UEFI — <code>uefi.elf</code> (the SPL_ATF FIT: BL31 + OP-TEE + U-Boot proper)</span></li>
+      </ul>
+      <p style="font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5">
+        This is platform-specific, not a general rule — see below. It also
+        differs from <code>sandbox.lemans</code>'s TF-A-BL2 bootflow, where
+        the FIP <strong style="color:var(--text)">does</strong> require OEM
+        signing.
+      </p>
+    </div>
+  </div>
+  <h3 style="max-width:960px; width:100%; font-size:14px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; margin-bottom:12px">Why UEFI/FIP signing is required for TF-A BL2 but not for U-Boot SPL</h3>
+  <p style="max-width:960px; width:100%; font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.6">
+    This was confirmed on hardware, not assumed. In a successful U-Boot SPL
+    boot with <code>uefi.elf</code> deliberately left <strong style="color:var(--text)">unsigned</strong>,
+    the SBL1 boot profiler showed XBL-SEC truncating <code>APPSBL</code>
+    (its name for the uefi partition) to a 148-byte stub with no
+    <code>Segments hash check</code> line — the same rejection signature
+    seen for an unsigned TZ — and the board still booted to Linux. The two
+    bootflows differ in <strong style="color:var(--text)">who reads the FIT
+    and from where</strong>, not in XBL-SEC policy or firmware version
+    (both were investigated and ruled out):
+  </p>
+  <div class="card-grid cols2" style="max-width:960px">
+    <div class="card" style="border-color:var(--red)">
+      <h3 style="color:var(--red)">TF-A BL2 (sandbox.lemans)</h3>
+      <p style="font-size:13px; line-height:1.6; margin-bottom:8px">
+        BL2 trusts a fixed physical address (<code>PLAT_QTI_FIP_IOBASE =
+        0xaf000000</code>) that XBL-SEC is expected to have already loaded
+        the FIP into during SBL1. If XBL-SEC rejected an unsigned FIP, BL2
+        reads a 148-byte stub there and fails:
+        <code>BL2: Failed to load image id 3 (-2)</code>.
+      </p>
+      <p style="font-size:12px; color:var(--muted)">
+        That <code>-2</code> is <code>ENOENT</code> from a FIP
+        Table-of-Contents lookup miss (<code>io_fip.c</code>) — not a BL2
+        auth rejection. <code>TRUSTED_BOARD_BOOT</code> is 0 in this build,
+        so FIP signature checking is compiled out of BL2 entirely. The real
+        fault is one stage earlier, in XBL-SEC. <strong style="color:var(--text)">uefi.elf
+        must be OEM-signed</strong> for this bootflow to work.
+      </p>
+    </div>
+    <div class="card" style="border-color:var(--green)">
+      <h3 style="color:var(--green)">U-Boot SPL (this build root)</h3>
+      <p style="font-size:13px; line-height:1.6; margin-bottom:8px">
+        SPL (<code>SPL_LOAD_FIT</code> + <code>SPL_ATF</code>) does not rely
+        on an XBL-SEC-loaded DRAM copy at all — it reads the
+        <code>uefi</code> partition itself, directly off UFS, via U-Boot's
+        own FIT parser.
+      </p>
+      <p style="font-size:12px; color:var(--muted)">
+        A truncated/garbage copy sitting in DRAM from XBL-SEC's rejection
+        is irrelevant: SPL goes back to storage and gets the real FIT
+        regardless of whether XBL-SEC ever approved it. <strong style="color:var(--text)">uefi.elf
+        does not need OEM signing</strong> for this bootflow — signing it
+        anyway would be harmless, just not required.
+      </p>
+    </div>
+  </div>
+  <h3 style="max-width:960px; width:100%; font-size:14px; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:.06em; margin:24px 0 12px">Signing Command (<code>make spl-oem-sign</code>)</h3>
+  <div class="card" style="max-width:960px">
+    <pre style="font-size:11px; padding:8px 12px"><span class="fn">sectools</span> secure-image u-boot/.output/spl/<span class="val">u-boot-spl-swiv.elf</span> \
+  --outfile lemans/output/<span class="val">tz-secure.mbn</span> \
+  --image-id <span class="str">TZ</span> \
+  --security-profile lemans/security/<span class="val">lemans_tz_security_profile.xml</span> \
+  --sign --signing-mode <span class="str">TEST</span>
+
+<span class="cmt"># Local sectools TEST key — no CASS / QTI-REMOTE server needed</span>
+<span class="cmt"># Same command shape for XBL / XBL-CONFIG, just --image-id XBL / XBL-CONFIG</span></pre>
+  </div>
+  <p style="max-width:960px; width:100%; font-size:12px; color:var(--muted); margin-top:12px">
+    <code>edl-secure-bootloader</code> (LUN1-4, fast re-flash) and
+    <code>edl-secure-package</code> (LUN0-5, full image) both run this as
+    part of their build; verify with
+    <code>sectools secure-image --inspect lemans/output/edl-secure-bootloader/tz.mbn</code>
+    — look for <code>OEM Signature Size: 104 (bytes)</code>.
   </p>
 </section>
 
