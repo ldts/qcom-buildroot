@@ -46,6 +46,7 @@
 #   edl-package    Assemble flat image dir for Windows EDL flashing (PCATApp/QFIL)
 #   edl-secure-package  edl-package + OEM-signed XBL/XBL-CONFIG/SPL (secure-boot testing)
 #   edl-bootloader Assemble bootloader-only EDL package (LUN1–4, fast re-flash)
+#   edl-secure-bootloader  edl-bootloader + OEM-signed XBL/XBL-CONFIG/SPL (secure-boot testing)
 #   *-clean        Per-component clean targets
 #
 # Configurable variables (override on the command line or in the environment)
@@ -334,6 +335,10 @@ help:
 	@echo "  edl-bootloader Bootloader-only EDL package (LUN1–4: XBL, CDT, SPL, U-Boot)"
 	@echo "                 Output: lemans/output/edl-bootloader/"
 	@echo "                 Fast re-flash path when only OP-TEE/U-Boot changed"
+	@echo "  edl-secure-bootloader  Same as edl-bootloader, then OEM-signs xbl.elf,"
+	@echo "                 xbl_config.elf, and the SPL tz.mbn via sectools"
+	@echo "                 Output: lemans/output/edl-secure-bootloader/"
+	@echo "                 Fast LUN1-4-only re-flash for OEM secure-boot testing"
 	@echo ""
 	@echo "════════════════════════════════════════════════════════════════════════"
 	@echo " FIRMWARE BLOB TARGETS  (alternative to 'make yocto')"
@@ -1683,3 +1688,79 @@ edl-bootloader-debug:
 	@echo ""
 	@echo "DEBUG bootloader-only EDL package assembled at: $(EDL_BL_DIR)/"
 	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE; LUN0/LUN5 untouched)"
+
+################################################################################
+# edl-secure-bootloader — edl-bootloader, plus OEM-signed XBL, XBL-CONFIG, and
+# the U-Boot SPL (tz partition), for OEM secure-boot testing on a fused EVK.
+#
+# Same relationship to edl-bootloader as edl-secure-package has to edl-package
+# -- see that target's comment block above for the full RCA on why XBL/
+# XBL-CONFIG/TZ need OEM signing here but uefi.elf does not (U-Boot SPL reads
+# the uefi partition itself from storage; it does not depend on an
+# XBL-SEC-loaded DRAM copy of the FIT the way TF-A BL2 does).
+#
+# Requires 'make spl-oem-sign' to have been run first (or run it here) so
+# lemans/output/tz-secure.mbn exists.
+#
+# Fast re-flash path (LUN1-4 only) for OEM secure-boot testing when only
+# TF-A/OP-TEE/U-Boot changed -- e.g. after cherry-picking new PAS auth
+# commits into optee_os.
+################################################################################
+EDL_SEC_BL_DIR = $(CURDIR)/lemans/output/edl-secure-bootloader
+
+.PHONY: edl-secure-bootloader edl-secure-bootloader-clean
+
+edl-secure-bootloader: edl-bootloader spl-oem-sign
+	@echo ""
+	@echo "── edl-secure-bootloader: OEM-signing XBL, XBL-CONFIG, SPL (tz) ──"
+	rm -rf $(EDL_SEC_BL_DIR)
+	mkdir -p $(EDL_SEC_BL_DIR)
+	@# Start from the assembled (unsigned/qtestsign) package, then replace the
+	@# three PBL/XBL-SEC-authenticated payloads with OEM-signed versions below.
+	cp -a $(EDL_BL_DIR)/. $(EDL_SEC_BL_DIR)/
+	$(SECTOOLS_PATH)/sectools secure-image $(EDL_BL_DIR)/xbl.elf \
+		--outfile $(EDL_SEC_BL_DIR)/xbl.elf \
+		--image-id XBL \
+		--security-profile $(SECURITY_PROFILE) \
+		--sign --signing-mode TEST
+	$(SECTOOLS_PATH)/sectools secure-image $(EDL_BL_DIR)/xbl_config.elf \
+		--outfile $(EDL_SEC_BL_DIR)/xbl_config.elf \
+		--image-id XBL-CONFIG \
+		--security-profile $(SECURITY_PROFILE) \
+		--sign --signing-mode TEST
+	@# tz-secure.mbn (OEM-signed SPL) replaces edl-bootloader's qtestsign tz.mbn.
+	cp $(CURDIR)/lemans/output/tz-secure.mbn $(EDL_SEC_BL_DIR)/tz.mbn
+	@echo ""
+	@echo "OEM-signed EDL bootloader package assembled at: $(EDL_SEC_BL_DIR)/"
+	@echo "  OEM-signed:  xbl.elf  xbl_config.elf  tz.mbn (U-Boot SPL)"
+	@echo "  Unsigned:    uefi.elf (FIT: TF-A BL31 + OP-TEE + U-Boot proper) --"
+	@echo "               not required for this bootflow, see edl-secure-package."
+	@echo "  Flash THIS directory (LUN1-4 only) for a fast secure-boot re-flash."
+	@echo "  Flashing needs the VIP signed-digest flow if the board is fused --"
+	@echo "  see sandbox.lemans's lemans-vip-flashing-procedure notes."
+
+edl-secure-bootloader-clean:
+	rm -rf $(EDL_SEC_BL_DIR)
+
+################################################################################
+# edl-secure-bootloader-debug — OEM-signed bootloader package with DEBUG OP-TEE
+#
+# Same as 'edl-secure-bootloader' but with verbose OP-TEE logging (LOG_LEVEL=4).
+# Fast re-flash path for debugging PAS/remoteproc on fused boards.
+#
+# edl-secure-bootloader depends (via edl-bootloader) on 'bootimage', so
+# passing the flags straight to 'edl-secure-bootloader' builds the whole
+# chain debug in one pass -- see edl-package-debug's comment block. A final
+# quiet 'bootimage' restores lemans/output/ without touching the
+# already-signed debug package.
+################################################################################
+.PHONY: edl-secure-bootloader-debug
+
+edl-secure-bootloader-debug:
+	@echo "Building OP-TEE with debug flags for edl-secure-bootloader..."
+	$(MAKE) edl-secure-bootloader CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 DEBUG=1 CFG_DEBUG_INFO=y
+	@echo "Restoring production OP-TEE build (LOG_LEVEL=1)..."
+	$(MAKE) bootimage
+	@echo ""
+	@echo "DEBUG OEM-signed bootloader-only EDL package assembled at: $(EDL_SEC_BL_DIR)/"
+	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE with OEM signatures; LUN0/LUN5 untouched)"
