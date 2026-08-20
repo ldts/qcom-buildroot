@@ -700,7 +700,10 @@ linux-defconfig:
 		-e DMABUF_HEAPS \
 		-e DMABUF_HEAPS_SYSTEM \
 		-e DMABUF_HEAPS_CMA \
-		-d MODULES
+		-d MODULES \
+		-e ARM64_64K_PAGES \
+		-d ARM64_4K_PAGES \
+		-d QCOM_SCM
 	$(LINUX_EXPORTS) $(MAKE) -C $(LINUX_PATH) olddefconfig
 
 linux: linux-overlays
@@ -1180,7 +1183,8 @@ linux-firmware: | $(OVERLAY_DIR)
 	@mkdir -p $(BLOBS_DIR)
 	@if [ ! -d $(FW_CLONE_DIR)/.git ]; then \
 		echo "Cloning linux-firmware (sparse: $(FW_SOC) $(FW_VPU))..."; \
-		git clone --filter=blob:none --sparse $(FW_REPO) $(FW_CLONE_DIR); \
+		git clone --filter=blob:none $(FW_REPO) $(FW_CLONE_DIR) && \
+		git -C $(FW_CLONE_DIR) sparse-checkout init; \
 	fi
 	@# Ensure both the per-SoC DSP dir and the shared video-codec dir are in the
 	@# sparse checkout. Run unconditionally so pre-existing clones (which only
