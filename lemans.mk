@@ -1406,7 +1406,7 @@ EDL_PKG_FILES = \
 
 .PHONY: edl-package edl-package-clean
 
-edl-package:
+edl-package: bootimage
 	@mkdir -p $(EDL_PKG_DIR)
 	@# ── Resolve every required file into the package directory ─────────────────
 	$(call stage-flash-files,$(EDL_PKG_FILES),$(EDL_PKG_DIR))
@@ -1453,6 +1453,28 @@ edl-package-clean:
 	rm -rf $(EDL_PKG_DIR)
 
 ################################################################################
+# edl-package-debug — Full EDL package built with a DEBUG OP-TEE
+#
+# Same output as 'edl-package' but with verbose secure-world logging
+# (LOG_LEVEL=4, DEBUG=1, CFG_DEBUG_INFO=y). edl-package already depends on
+# 'bootimage', so passing the flags straight to 'edl-package' builds the
+# whole chain (optee-os -> tfa -> u-boot -> u-boot-proper -> spl -> uefi)
+# debug in one pass -- no separate 'bootimage' pre-step needed. A final
+# quiet 'bootimage' restores lemans/output/ to the production state
+# without touching the already-assembled debug package.
+################################################################################
+.PHONY: edl-package-debug
+
+edl-package-debug:
+	@echo "Building OP-TEE with debug flags for edl-package..."
+	$(MAKE) edl-package CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 DEBUG=1 CFG_DEBUG_INFO=y
+	@echo "Restoring production OP-TEE build (LOG_LEVEL=1)..."
+	$(MAKE) bootimage
+	@echo ""
+	@echo "DEBUG EDL package assembled at: $(EDL_PKG_DIR)/"
+	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE)"
+
+################################################################################
 # edl-bootloader — Minimal EDL package: bootloaders only (no efi.bin/rootfs)
 #
 # Flashes LUN1–4 only:
@@ -1460,13 +1482,12 @@ edl-package-clean:
 #   LUN3:   CDT
 #   LUN4:   tz.mbn, uefi.elf, aop, shrm, hyp, devcfg, cpucp, imagefv, …
 #
-# This is the fast re-flash path when only OP-TEE/U-Boot changed.
+# This is the fast re-flash path when only TF-A/OP-TEE/U-Boot changed.
 # efi.bin (LUN0) and persist (LUN5) are untouched.
 #
-# OP-TEE is rebuilt with full debug logging (LOG_LEVEL=4, DEBUG=1) so that
-# secure-world traces are visible over the UART during bring-up.  The
-# production build (LOG_LEVEL=1) is restored afterward so that lemans/output/
-# is left in the standard quiet state.
+# Depends on 'bootimage' for a fresh, quiet-by-default rebuild (optee-os ->
+# tfa -> u-boot -> u-boot-proper -> spl -> uefi); use edl-bootloader-debug
+# for a verbose (LOG_LEVEL=4) OP-TEE build instead.
 ################################################################################
 EDL_BL_DIR = $(CURDIR)/lemans/output/edl-bootloader
 
@@ -1480,22 +1501,12 @@ EDL_BL_FILES = \
 
 .PHONY: edl-bootloader edl-bootloader-clean
 
-edl-bootloader:
-	@echo "Building OP-TEE with debug flags for edl-bootloader..."
-	$(MAKE) optee-os CFG_TEE_CORE_LOG_LEVEL=4 DEBUG=1 CFG_DEBUG_INFO=y
-	$(MAKE) u-boot
-	$(MAKE) spl
+edl-bootloader: bootimage
 	@mkdir -p $(EDL_BL_DIR)
 	$(call stage-flash-files,$(EDL_BL_FILES),$(EDL_BL_DIR))
-	@# Copy the debug-built tz.mbn (signed SPL) and uefi.elf into the package
+	@# Copy the freshly built tz.mbn (signed SPL) and uefi.elf into the package
 	cp $(CURDIR)/lemans/output/tz.mbn     $(EDL_BL_DIR)/tz.mbn
 	cp $(CURDIR)/lemans/output/uefi.elf $(EDL_BL_DIR)/uefi.elf
-	@# Restore production OP-TEE build (LOG_LEVEL=1) and re-sign SPL
-	@echo "Restoring production OP-TEE build (LOG_LEVEL=1)..."
-	$(MAKE) optee-os
-	$(MAKE) tfa
-	$(MAKE) u-boot
-	$(MAKE) spl
 	@# qupv3fw.elf + patch rawprogram4 to populate qupfw_a/b
 	@if   [ -f "$(CURDIR)/lemans/input/qupv3fw.elf" ]; then \
 	    cp "$(CURDIR)/lemans/input/qupv3fw.elf" "$(EDL_BL_DIR)/qupv3fw.elf"; \
@@ -1520,3 +1531,22 @@ edl-bootloader:
 
 edl-bootloader-clean:
 	rm -rf $(EDL_BL_DIR)
+
+################################################################################
+# edl-bootloader-debug — Bootloader-only package with DEBUG OP-TEE
+#
+# Same as edl-package-debug's approach, for the LUN1-4-only edl-bootloader
+# path: edl-bootloader already depends on 'bootimage', so passing the debug
+# flags straight to 'edl-bootloader' builds+assembles in one pass, then a
+# final quiet 'bootimage' restores lemans/output/.
+################################################################################
+.PHONY: edl-bootloader-debug
+
+edl-bootloader-debug:
+	@echo "Building OP-TEE with debug flags for edl-bootloader..."
+	$(MAKE) edl-bootloader CFG_TEE_CORE_LOG_LEVEL=4 CFG_TEE_TA_LOG_LEVEL=4 DEBUG=1 CFG_DEBUG_INFO=y
+	@echo "Restoring production OP-TEE build (LOG_LEVEL=1)..."
+	$(MAKE) bootimage
+	@echo ""
+	@echo "DEBUG bootloader-only EDL package assembled at: $(EDL_BL_DIR)/"
+	@echo "  (tz.mbn / uefi.elf carry LOG_LEVEL=4 OP-TEE; LUN0/LUN5 untouched)"
