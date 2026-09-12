@@ -127,6 +127,13 @@
     main.insertBefore(buildBreadcrumb(path), main.firstChild);
     main.appendChild(buildPrevNext(path));
     addAnchors(main);
+    var logo = el('a', 'rtd-logo',
+      '<img class="mark" src="assets/qualcomm-mark.svg" alt="">' +
+      '<img class="word" src="img/qualcomm-logo.svg" alt="Qualcomm">');
+    logo.setAttribute('href', 'https://www.qualcomm.com');
+    logo.setAttribute('target', '_blank');
+    logo.setAttribute('rel', 'noopener');
+    document.body.appendChild(logo);
   }
 
   if (document.readyState === 'loading')
