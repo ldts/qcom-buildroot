@@ -18,7 +18,12 @@ body.rtd {
   font-family: Lato, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 16px; line-height: 1.65;
   padding-left: var(--rtd-side-w);
+  /* Baked-in 1.5x enlargement (Chrome/Firefox `zoom`) so the docs read at a
+     comfortable size without manually setting the browser to 150%. */
+  zoom: 1.5;
 }
+/* Present mode: enlarge slides to 200% so the deck reads from across a room. */
+body.rtd.presenting { zoom: 2; }
 /* Sidebar */
 .rtd-side {
   position: fixed; top: 0; left: 0; width: var(--rtd-side-w); height: 100vh;
